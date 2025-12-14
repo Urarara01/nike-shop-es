@@ -1,73 +1,71 @@
 import React, { useState, useRef, useEffect } from 'react';
+import socket from '../chat/socket';
 
 const FloatingChat = ({ isOpen, onClose }) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const chatRef = useRef(null);
 
-    // Close on click outside
+    // ID persistente para mantener la conversación
+    const [chatId] = useState(() => {
+        const stored = localStorage.getItem('chat_id');
+        if (stored) return stored;
+        const newId = 'chat_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('chat_id', newId);
+        return newId;
+    });
+
+    useEffect(() => {
+        const joinRoom = () => {
+            if (isOpen && chatId) {
+                // Unirse al chat
+                socket.emit('join_chat', { chat_id: chatId, user_name: 'Guest' });
+
+                // Cargar historial? (Opcional, si el backend lo soporta)
+                socket.emit('load_messages', { chat_id: chatId });
+            }
+        };
+
+        if (isOpen) {
+            joinRoom();
+        }
+
+        // Reconectar al chat
+        socket.on('connect', joinRoom);
+
+        return () => {
+            socket.off('connect', joinRoom);
+        };
+    }, [isOpen, chatId]);
+
+    useEffect(() => {
+        // Escuchar mensajes entrantes
+        const handleReceiveMessage = (message) => {
+            if (message.chat_id === chatId) {
+                setMessages((prev) => [...prev, message]);
+            }
+        };
+
+        const handleLoadedMessages = ({ chat_id, messages: loadedMessages }) => {
+            if (chat_id === chatId) {
+                setMessages(loadedMessages);
+            }
+        }
+
+        socket.on('receive_message', handleReceiveMessage);
+        socket.on('loaded_messages', handleLoadedMessages);
+
+        return () => {
+            socket.off('receive_message', handleReceiveMessage);
+            socket.off('loaded_messages', handleLoadedMessages);
+        };
+    }, [chatId]);
+
+    // Cerrar al hacer clic fuera
     useEffect(() => {
         const handleClickOutside = (event) => {
-            // Check if click is outside chat AND outside the trigger button (handled by hierarchy mostly, but good to be safe)
-            // Actually, if we click the toggle button, it might toggle closed -> open -> closed if we are not careful?
-            // The logic in ChatButton is toggle. If we click outside (which could be the button), this fires.
-            // If the button is *outside* this ref, it will call onClose().
-            // If the user clicks the toggle button:
-            // 1. mousedown fires on document -> onClose() -> isOpen becomes false.
-            // 2. click fires on button -> handleClick() -> toggles isOpen (false -> true).
-            // Result: Chat closes then immediately opens (flicker or stays open).
-            // Fix: We need to ignore clicks on the toggle button.
-            // But the toggle button is in the parent. We can't easily ref it here.
-            // Better strategy: "Click outside" usually means clicks that are NOT on the chat.
-            // If the user clicks the toggle button, that is technically "outside", so `onClose` calls.
-            // Then `handleClick` in parent calls `setIsOpen(!isOpen)`. 
-            // If isOpen was true:
-            // onClose() sets it to false.
-            // handleClick sets it to false (toggle from true).
-            // Wait. State updates might be batched or race.
-            // If isOpen is true. 
-            // User clicks button.
-            // Event bubbling: 
-            // Button mousedown/click.
-            // Document mousedown.
-            // If document mousedown happens first? 
-            // Standard: mousedown happens on target, bubbles to document.
-            // So document listener runs. calls onClose() -> setIsOpen(false).
-            // Then button onClick runs. setIsOpen(!isOpen). isOpen is technically still true in the closure of that render?
-            // Yes. In the current render cycle, `isOpen` is true. `handleClick` toggles it to false.
-            // So both set it to false. 
-            // Result: Chat closes. Correct.
-
-            // What if chat is CLOSED?
-            // isOpen is false. Click outside listener shouldn't be active or checks isOpen.
-            // (The hook has `if (isOpen)`).
-            // So listener does nothing.
-            // Button onClick toggles to true.
-            // Result: Chat opens. Correct.
-
-            // So the standard logic should actually work fine for the toggle button too.
+            // Si el chat está abierto y el clic está fuera del chat
             if (isOpen && chatRef.current && !chatRef.current.contains(event.target)) {
-                // Determine if we clicked the toggle button? 
-                // We don't have access to the button ref easily.
-                // But usually, clicking the toggle button causes a state change anyway.
-                // However, let's just emit onClose and let the parent handle it?
-                // Actually, if we click the button:
-                // 1. Button click -> toggles state.
-                // 2. Click outside logic -> closes state.
-                // If both happen, we might have issues if they conflicts.
-                // If isOpen=true. Click button. 
-                // Button: setIsOpen(false). 
-                // Outside: setIsOpen(false).
-                // Result: False. OK.
-
-                // If the click outside logic uses 'mousedown', it happens before 'click'.
-                // 1. mousedown on button. Document listener fires. onClose() -> setIsOpen(false).
-                // 2. User releases mouse. click event fires on button. handleClick() -> setIsOpen(!isOpen). 
-                //    Here isOpen is still TRUE (from closure). So !true = false.
-                // Result: setIsOpen(false) called twice. OK.
-
-                // EXCEPT: if rendering is sync/fast enough? No, closures capture old state.
-
                 onClose();
             }
         };
@@ -83,12 +81,14 @@ const FloatingChat = ({ isOpen, onClose }) => {
 
     const handleSendMessage = () => {
         if (input.trim()) {
-            setMessages([...messages, { text: input, sender: 'user' }]);
+            const tempMsg = { text: input, sender: 'user', chat_id: chatId };
+            socket.emit('send_message', {
+                chat_id: chatId,
+                text: input,
+                sender: 'user'
+            });
+
             setInput('');
-            // Simulate a response (optional)
-            setTimeout(() => {
-                setMessages(prevMessages => [...prevMessages, { text: '¡Hola! ¿En qué puedo ayudarte?', sender: 'bot' }]);
-            }, 1000);
         }
     };
 
@@ -128,8 +128,8 @@ const FloatingChat = ({ isOpen, onClose }) => {
                     <div
                         key={index}
                         className={`max-w-[85%] p-3 text-sm leading-relaxed shadow-sm ${msg.sender === 'user'
-                                ? 'self-end bg-gradient-to-r from-coral-red to-neon-pink text-white rounded-2xl rounded-tr-none'
-                                : 'self-start bg-white text-slate-gray border border-gray-100 rounded-2xl rounded-tl-none'
+                            ? 'self-end bg-gradient-to-r from-coral-red to-neon-pink text-white rounded-2xl rounded-tr-none'
+                            : 'self-start bg-white text-slate-gray border border-gray-100 rounded-2xl rounded-tl-none'
                             }`}
                     >
                         {msg.text}

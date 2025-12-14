@@ -1,19 +1,27 @@
-import Button from "./components/Button"
-
-const handleLogin = (e) => {
-  e.preventDefault();
-
-  let email = document.getElementById("email").value;
-  let password = document.getElementById("password").value;
-
-  if (email === "admin@admin.com" && password === "admin") {
-    alert("Login exitoso");
-  } else {
-    alert("Credenciales incorrectas");
-  }
-}
+import React, { useState } from "react";
+import Button from "./components/Button";
+import AdminChats from "./chat/AdminChats";
 
 const Admin = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+
+    let email = document.getElementById("email").value;
+    let password = document.getElementById("password").value;
+
+    if (email === "admin@admin.com" && password === "admin") {
+      setIsLoggedIn(true);
+    } else {
+      alert("Credenciales incorrectas");
+    }
+  }
+
+  if (isLoggedIn) {
+    return <AdminChats />;
+  }
+
   return (
     <section id="login" className="max-container flex justify-center items-center min-h-screen">
       <div className="lg:max-w-[40%] w-full flex flex-col items-center gap-5 p-5 sm:border-2 sm:border-violet-glow/30 rounded-xl shadow-glow backdrop-blur-sm bg-white/50 transition-all duration-500 hover:shadow-electric hover:scale-105">
