@@ -3,16 +3,29 @@ const http = require('http');
 const { Server } = require("socket.io");
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
-app.use(cors());
+
+// CORS configurado para permitir cualquier origen (útil para presentaciones)
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST']
+}));
+
+// Servir archivos estáticos del build de React
+app.use(express.static(path.join(__dirname, 'build')));
 
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:3000", "http://localhost:4000"], // Allow React frontend on both ports
-        methods: ["GET", "POST"]
-    }
+        origin: '*', // Permitir cualquier origen para la presentación
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    // Configuración para conexiones más estables
+    pingTimeout: 60000,
+    pingInterval: 25000
 });
 
 // Database Setup
@@ -114,7 +127,17 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = 3001;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+// Ruta catch-all para servir la app React (SPA)
+// Express 5 requiere sintaxis diferente para rutas comodín
+app.get('/{*splat}', (req, res) => {
+    res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+const PORT = process.env.PORT || 3001;
+const HOST = '0.0.0.0'; // Escuchar en todas las interfaces de red
+
+server.listen(PORT, HOST, () => {
+    console.log(`🚀 Server running on http://${HOST}:${PORT}`);
+    console.log(`📡 Socket.io ready for connections`);
+    console.log(`💡 Para acceso externo, usa tu IP pública o servicio de túnel`);
 });

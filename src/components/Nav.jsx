@@ -1,13 +1,14 @@
 import { headerLogo } from '../assets/images/'
 import { hamburger } from "../assets/icons"  
 import { navLinks } from '../constants'
+import logo2 from '../assets/images/logo2.png'
 
 const Nav = () => {
   return (
     <header className='padding-x py-8 absolute z-10 w-full'>
         <nav className='flex justify-between items-center max-container glass-effect rounded-2xl px-8 py-4 shadow-glow border border-white/20'>
             <a href="/" className='transition-transform hover:scale-110 duration-300'>
-            <img src={headerLogo} alt="Logo"  width={130} height={28} className='drop-shadow-lg'/>
+            <img src={logo2} alt="Logo"  width={200} height={40} />
             </a>
 
             <ul className='flex-1 flex justify-center items-center gap-16 max-lg:hidden'>
