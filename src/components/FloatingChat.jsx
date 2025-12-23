@@ -103,7 +103,7 @@ const FloatingChat = ({ isOpen, onClose }) => {
             <div className="bg-gradient-to-r from-coral-red via-neon-pink to-violet-glow p-4 text-white flex justify-between items-center shadow-md">
                 <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <h3 className="font-semibold text-lg">Soporte Nike</h3>
+                    <h3 className="font-semibold text-lg">Soporte SneakerHub</h3>
                 </div>
                 <button
                     onClick={onClose}
