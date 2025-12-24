@@ -1,11 +1,13 @@
 import { CustomerReviews, Footer, Hero, PopularProducts, Services, SpecialOffer, Subscribe, SuperQuality } from "./sections";
 import Nav from "./components/Nav";
 import ChatButton from "./components/ChatButton";
+import Cart from "./components/Cart";
 
 const Home = () => {
   return (
     <main className="relative bg-gradient-to-br from-white via-pale-blue to-primary">
       <Nav />
+      <Cart />
       <ChatButton />
       <section className="xl:padding-l wide:padding-r padding-b relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-electric-blue/5 via-transparent to-neon-pink/5 pointer-events-none"></div>
