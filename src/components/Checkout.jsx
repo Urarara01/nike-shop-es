@@ -17,15 +17,129 @@ const Checkout = ({ isOpen, onClose }) => {
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
+  const [errors, setErrors] = useState({});
 
   if (!isOpen) return null;
 
   const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    // Validación para el campo de teléfono
+    if (name === 'phone') {
+      if (/[a-zA-Z]/.test(value)) {
+        setErrors(prev => ({ ...prev, phone: 'El teléfono solo debe contener números' }));
+      } else {
+        setErrors(prev => ({ ...prev, phone: '' }));
+      }
+      const cleanedValue = value.replace(/[^0-9+\-\s]/g, '');
+      setFormData(prev => ({ ...prev, [name]: cleanedValue }));
+      return;
+    }
+
+    // Validación para el código postal (solo números)
+    if (name === 'zipCode') {
+      if (/[a-zA-Z]/.test(value)) {
+        setErrors(prev => ({ ...prev, zipCode: 'El código postal solo debe contener números' }));
+      } else {
+        setErrors(prev => ({ ...prev, zipCode: '' }));
+      }
+      const cleanedValue = value.replace(/[^0-9]/g, '');
+      setFormData(prev => ({ ...prev, [name]: cleanedValue }));
+      return;
+    }
+
+    // Validación para el número de tarjeta
+    if (name === 'cardNumber') {
+      if (/[a-zA-Z]/.test(value)) {
+        setErrors(prev => ({ ...prev, cardNumber: 'El número de tarjeta solo debe contener números' }));
+      } else {
+        const digitsOnly = value.replace(/\s/g, '');
+        if (digitsOnly.length > 0 && digitsOnly.length < 16) {
+          setErrors(prev => ({ ...prev, cardNumber: 'El número de tarjeta debe tener 16 dígitos' }));
+        } else {
+          setErrors(prev => ({ ...prev, cardNumber: '' }));
+        }
+      }
+      // Formatear con espacios cada 4 dígitos
+      const digitsOnly = value.replace(/\D/g, '').slice(0, 16);
+      const formatted = digitsOnly.replace(/(\d{4})(?=\d)/g, '$1 ');
+      setFormData(prev => ({ ...prev, [name]: formatted }));
+      return;
+    }
+
+    // Validación para el nombre en la tarjeta (solo letras y espacios)
+    if (name === 'cardName') {
+      if (/[0-9]/.test(value)) {
+        setErrors(prev => ({ ...prev, cardName: 'El nombre solo debe contener letras' }));
+      } else {
+        setErrors(prev => ({ ...prev, cardName: '' }));
+      }
+      const cleanedValue = value.replace(/[0-9]/g, '').toUpperCase();
+      setFormData(prev => ({ ...prev, [name]: cleanedValue }));
+      return;
+    }
+
+    // Validación para la fecha de expiración (MM/AA)
+    if (name === 'expiryDate') {
+      const digitsOnly = value.replace(/\D/g, '').slice(0, 4);
+      let formatted = digitsOnly;
+      
+      if (digitsOnly.length >= 2) {
+        const month = parseInt(digitsOnly.slice(0, 2), 10);
+        if (month < 1 || month > 12) {
+          setErrors(prev => ({ ...prev, expiryDate: 'Mes inválido (01-12)' }));
+        } else {
+          // Validar que la fecha no esté expirada
+          if (digitsOnly.length === 4) {
+            const year = parseInt('20' + digitsOnly.slice(2, 4), 10);
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
+            const currentMonth = currentDate.getMonth() + 1;
+            
+            if (year < currentYear || (year === currentYear && month < currentMonth)) {
+              setErrors(prev => ({ ...prev, expiryDate: 'La tarjeta está expirada' }));
+            } else {
+              setErrors(prev => ({ ...prev, expiryDate: '' }));
+            }
+          } else {
+            setErrors(prev => ({ ...prev, expiryDate: '' }));
+          }
+        }
+        formatted = digitsOnly.slice(0, 2) + '/' + digitsOnly.slice(2);
+      } else {
+        if (/[a-zA-Z]/.test(value)) {
+          setErrors(prev => ({ ...prev, expiryDate: 'Solo ingrese números' }));
+        } else {
+          setErrors(prev => ({ ...prev, expiryDate: '' }));
+        }
+      }
+      
+      setFormData(prev => ({ ...prev, [name]: formatted }));
+      return;
+    }
+
+    // Validación para el CVV (solo 3-4 números)
+    if (name === 'cvv') {
+      if (/[a-zA-Z]/.test(value)) {
+        setErrors(prev => ({ ...prev, cvv: 'El CVV solo debe contener números' }));
+      } else if (value.length > 0 && value.length < 3) {
+        setErrors(prev => ({ ...prev, cvv: 'El CVV debe tener 3 o 4 dígitos' }));
+      } else {
+        setErrors(prev => ({ ...prev, cvv: '' }));
+      }
+      const cleanedValue = value.replace(/\D/g, '').slice(0, 4);
+      setFormData(prev => ({ ...prev, [name]: cleanedValue }));
+      return;
+    }
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
   };
+
+  // Verificar si hay errores activos para deshabilitar el botón
+  const hasErrors = Object.values(errors).some(error => error !== '');
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -140,15 +254,29 @@ const Checkout = ({ isOpen, onClose }) => {
                         required
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-coral-red focus:outline-none transition-colors font-montserrat"
                       />
-                      <input
-                        type="tel"
-                        name="phone"
-                        placeholder="Teléfono *"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-coral-red focus:outline-none transition-colors font-montserrat"
-                      />
+                      <div>
+                        <input
+                          type="tel"
+                          name="phone"
+                          placeholder="Teléfono *"
+                          value={formData.phone}
+                          onChange={handleInputChange}
+                          required
+                          className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors font-montserrat ${
+                            errors.phone 
+                              ? 'border-red-500 focus:border-red-500 bg-red-50' 
+                              : 'border-gray-200 focus:border-coral-red'
+                          }`}
+                        />
+                        {errors.phone && (
+                          <p className="text-red-500 text-sm mt-1 font-montserrat flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.phone}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -177,15 +305,29 @@ const Checkout = ({ isOpen, onClose }) => {
                           required
                           className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-coral-red focus:outline-none transition-colors font-montserrat"
                         />
-                        <input
-                          type="text"
-                          name="zipCode"
-                          placeholder="Código Postal *"
-                          value={formData.zipCode}
-                          onChange={handleInputChange}
-                          required
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-coral-red focus:outline-none transition-colors font-montserrat"
-                        />
+                        <div>
+                          <input
+                            type="text"
+                            name="zipCode"
+                            placeholder="Código Postal *"
+                            value={formData.zipCode}
+                            onChange={handleInputChange}
+                            required
+                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors font-montserrat ${
+                              errors.zipCode 
+                                ? 'border-red-500 focus:border-red-500 bg-red-50' 
+                                : 'border-gray-200 focus:border-coral-red'
+                            }`}
+                          />
+                          {errors.zipCode && (
+                            <p className="text-red-500 text-xs mt-1 font-montserrat flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              {errors.zipCode}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -196,55 +338,111 @@ const Checkout = ({ isOpen, onClose }) => {
                       Información de Pago
                     </h3>
                     <div className="space-y-4">
-                      <input
-                        type="text"
-                        name="cardNumber"
-                        placeholder="Número de tarjeta *"
-                        value={formData.cardNumber}
-                        onChange={handleInputChange}
-                        required
-                        maxLength="16"
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-coral-red focus:outline-none transition-colors font-montserrat"
-                      />
-                      <input
-                        type="text"
-                        name="cardName"
-                        placeholder="Nombre en la tarjeta *"
-                        value={formData.cardName}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-coral-red focus:outline-none transition-colors font-montserrat"
-                      />
+                      <div>
+                        <input
+                          type="text"
+                          name="cardNumber"
+                          placeholder="Número de tarjeta *"
+                          value={formData.cardNumber}
+                          onChange={handleInputChange}
+                          required
+                          maxLength="19"
+                          className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors font-montserrat ${
+                            errors.cardNumber 
+                              ? 'border-red-500 focus:border-red-500 bg-red-50' 
+                              : 'border-gray-200 focus:border-coral-red'
+                          }`}
+                        />
+                        {errors.cardNumber && (
+                          <p className="text-red-500 text-sm mt-1 font-montserrat flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.cardNumber}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          name="cardName"
+                          placeholder="Nombre en la tarjeta *"
+                          value={formData.cardName}
+                          onChange={handleInputChange}
+                          required
+                          className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors font-montserrat ${
+                            errors.cardName 
+                              ? 'border-red-500 focus:border-red-500 bg-red-50' 
+                              : 'border-gray-200 focus:border-coral-red'
+                          }`}
+                        />
+                        {errors.cardName && (
+                          <p className="text-red-500 text-sm mt-1 font-montserrat flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.cardName}
+                          </p>
+                        )}
+                      </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <input
-                          type="text"
-                          name="expiryDate"
-                          placeholder="MM/AA *"
-                          value={formData.expiryDate}
-                          onChange={handleInputChange}
-                          required
-                          maxLength="5"
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-coral-red focus:outline-none transition-colors font-montserrat"
-                        />
-                        <input
-                          type="text"
-                          name="cvv"
-                          placeholder="CVV *"
-                          value={formData.cvv}
-                          onChange={handleInputChange}
-                          required
-                          maxLength="3"
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-coral-red focus:outline-none transition-colors font-montserrat"
-                        />
+                        <div>
+                          <input
+                            type="text"
+                            name="expiryDate"
+                            placeholder="MM/AA *"
+                            value={formData.expiryDate}
+                            onChange={handleInputChange}
+                            required
+                            maxLength="5"
+                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors font-montserrat ${
+                              errors.expiryDate 
+                                ? 'border-red-500 focus:border-red-500 bg-red-50' 
+                                : 'border-gray-200 focus:border-coral-red'
+                            }`}
+                          />
+                          {errors.expiryDate && (
+                            <p className="text-red-500 text-xs mt-1 font-montserrat flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              {errors.expiryDate}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            name="cvv"
+                            placeholder="CVV *"
+                            value={formData.cvv}
+                            onChange={handleInputChange}
+                            required
+                            maxLength="4"
+                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors font-montserrat ${
+                              errors.cvv 
+                                ? 'border-red-500 focus:border-red-500 bg-red-50' 
+                                : 'border-gray-200 focus:border-coral-red'
+                            }`}
+                          />
+                          {errors.cvv && (
+                            <p className="text-red-500 text-xs mt-1 font-montserrat flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              {errors.cvv}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={isProcessing}
+                    disabled={isProcessing || hasErrors}
                     className={`w-full py-4 rounded-xl font-montserrat font-bold text-lg text-white transition-all duration-300 ${
-                      isProcessing
+                      isProcessing || hasErrors
                         ? 'bg-gray-400 cursor-not-allowed'
                         : 'bg-gradient-to-r from-coral-red via-neon-pink to-violet-glow hover:shadow-hover hover:scale-105'
                     }`}
